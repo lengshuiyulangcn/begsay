@@ -23,6 +23,7 @@ def get_assets
 
   date = Date.today.strftime("%Y%m%d")
 
+  t = Time.now
 
   CSV.foreach( __dir__ + "/config_stock.csv") do |row|
     # BTC,1
@@ -31,10 +32,10 @@ def get_assets
     position[code] = row[1]
     respose = HTTParty.get("https://minkabu.jp/json/stocks/#{code}/prices/1d/#{date}.json")
     data << JSON.parse(respose.body)
+    t = JSON.parse(respose.body)["prices"][-1]["pricedAt"]
   end
 
-  t = Time.now
-  title = t.strftime("💹 (%y-%m-%d %H:%M)")
+  title =Time.parse(t).strftime("💹 (%y-%m-%d %H:%M)")
   total = 0
   listup = []
   data.each do |record|
@@ -47,9 +48,9 @@ def get_assets
     sum = change_in_24 * amount.to_i
 
     if change_in_24 > 0
-      listup << [ code.green, name.green, Money.new(price, :jpy).format.green, change_in_24.to_s.green , amount.green, Money.new(sum.to_s, :jpy).format.green ]
-    else
       listup << [ code.red, name.red, Money.new(price, :jpy).format.red, change_in_24.to_s.red , amount.red, Money.new(sum.to_s, :jpy).format.red ]
+    else
+      listup << [ code.green, name.green, Money.new(price, :jpy).format.green, change_in_24.to_s.green , amount.green, Money.new(sum.to_s, :jpy).format.green ]
     end
     total += sum
   end
@@ -62,5 +63,5 @@ end
 while true
   puts `clear`
   get_assets
-  sleep(300)
+  sleep(60)
 end
