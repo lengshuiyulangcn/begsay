@@ -19,17 +19,17 @@ LOGFILE = __dir__ + "/log"
 
 def get_assets
   position = {}
+  entry = {}
   data = []
 
   date = Date.today.strftime("%Y%m%d")
-
   t = Time.now
 
   CSV.foreach( __dir__ + "/config_stock.csv") do |row|
-    # BTC,1
-    # ETH,40
+    # 2461,1000,544
     code = row[0]
     position[code] = row[1]
+    entry[code] = row[2]
     respose = HTTParty.get("https://minkabu.jp/json/stocks/#{code}/prices/1d/#{date}.json")
     data << JSON.parse(respose.body)
     t = JSON.parse(respose.body)["prices"][-1]["pricedAt"]
@@ -37,6 +37,7 @@ def get_assets
 
   title =Time.parse(t).strftime("💹 (%y-%m-%d %H:%M)")
   total = 0
+  float_profit = 0
   listup = []
   data.each do |record|
     code = record["brand"]["code"]
@@ -45,17 +46,24 @@ def get_assets
     price = record["prices"][-1]["close"]
     yesterday_price = record["lastPrice"]["close"]
     change_in_24 = price.to_i - yesterday_price.to_i
+    change_total = price.to_i - entry[code].to_i
     sum = change_in_24 * amount.to_i
+    sum_all = change_total * amount.to_i
+    sum_all_str = Money.new(sum_all, :jpy).format.green
+    if sum_all > 0
+      sum_all_str = Money.new(sum_all, :jpy).format.red
+    end
 
-    if change_in_24 > 0
-      listup << [ code.red, name.red, Money.new(price, :jpy).format.red, change_in_24.to_s.red , amount.red, Money.new(sum.to_s, :jpy).format.red ]
+    if change_in_24 > 0 && amount.to_i > 0
+      listup << [ code.red, name.red, Money.new(price, :jpy).format.red, change_in_24.to_s.red , amount.red, Money.new(sum.to_s, :jpy).format.red, sum_all_str ]
     else
-      listup << [ code.green, name.green, Money.new(price, :jpy).format.green, change_in_24.to_s.green , amount.green, Money.new(sum.to_s, :jpy).format.green ]
+      listup << [ code.green, name.green, Money.new(price, :jpy).format.green, change_in_24.to_s.green , amount.green, Money.new(sum.to_s, :jpy).format.green, sum_all_str ]
     end
     total += sum
+    float_profit += sum_all
   end
-  table = Terminal::Table.new :title => title, :headings => ['代号', '名称', '价格', '涨幅', '持仓', '合计(jpy)'], :rows => listup
-  table << ['Total', '','','','', Money.new(total.round.to_s, :jpy).format]
+  table = Terminal::Table.new :title => title, :headings => ['代号', '名称', '价格', '涨幅', '持仓', '今日','浮动盈亏'], :rows => listup
+  table << ['Total', '','','','', Money.new(total.round.to_s, :jpy).format, Money.new(float_profit.round.to_s, :jpy).format]
   puts table
 
 end
